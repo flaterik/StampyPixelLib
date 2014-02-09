@@ -13,9 +13,8 @@ public:
     void colorWipeDown(uint32_t c, uint8_t wait);
     uint32_t getColor(uint8_t r, uint8_t g, uint8_t b);
     void begin();
-    //void showIndex(int index, int16_t currentSpeed);
 private:
-    static const uint16_t _loopInterval = 10000;
+    static const uint16_t _loopInterval = 1000;
     static const uint8_t _displaySize = 4;
     
     static const uint8_t _bgMinBrightness = 0;
@@ -50,9 +49,9 @@ private:
     float fmap(float x, float in_min, float in_max, float out_min, float out_max);
     float getRadians(float index, int interval);
     uint8_t sinMap(float rads);
-    uint32_t getLoopedColor();
     uint32_t getLoopedColor(int index, int interval);
-    void showPosition(int index, int16_t currentSpeed, uint32_t bgColor);
+    void showPosition(int index, int16_t currentSpeed);
+    uint32_t getLightColor(int lightIndex);
     
 };
 

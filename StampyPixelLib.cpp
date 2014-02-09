@@ -14,12 +14,12 @@ StampyStrip::StampyStrip(uint16_t pix, uint16_t ledPin, uint16_t inputPin, uint1
     _ledPin = ledPin;
     _pix = pix;
     _pixCenter = pixCenter;
-    _bgColor = getColor(50,50,50);
 }
 
 void StampyStrip::begin() {
     _strip->begin();
     _strip->show();
+    rainbowWipeUp(50);
 }
 
 uint32_t StampyStrip::getColor(uint8_t r, uint8_t g, uint8_t b) {
@@ -77,7 +77,6 @@ void StampyStrip::loop() {
             sampleSum += _sampleBuffer[i];
             _sampleBuffer[i] = 0;
         }
-        //Serial.println(sampleSum);
         uint32_t averaged = sampleSum / _sampleBufferSize;
         if(averaged < _readMin) {
             _readMin = averaged;
@@ -88,53 +87,49 @@ void StampyStrip::loop() {
         currentIndex = (uint16_t) map(averaged, _readMin, _readMax, 0, _pix - 1);
         currentSpeed = abs(currentIndex - _lastIndex);
         _lastIndex = currentIndex;
-        //Serial.println(currentSpeed);
         if(currentSpeed > _maxSpeed) {
             _maxSpeed = currentSpeed;
-            //Serial.print("New max speed!"); Serial.println(_maxSpeed);
         }
         _lastSpeed = currentSpeed;
-        //Serial.println(_loopCount);
         _sampleIndex = 0;
-        //Serial.print("current index "); Serial.println(currentIndex);
-        //_bgColor = getLoopedColor();
-        showPosition(currentIndex, currentSpeed, getLoopedColor());
-        //Serial.print("got bg color "); Serial.println(_bgColor);
+        showPosition(currentIndex, currentSpeed);
     }
     else {
         currentIndex = _lastIndex;
         currentSpeed = _lastSpeed;
     }
-//
+
     int inputRead = analogRead(_inputPin);
+    //Serial.println(inputRead);
     if(inputRead < _readLimitLow) inputRead = _readLimitLow;
     if(inputRead > _readLimitHigh) inputRead = _readLimitHigh;
     
     _sampleBuffer[_sampleIndex++] = (uint16_t) inputRead;
     _sampleIndex++;
         
-    //showPosition(currentIndex, currentSpeed);
-    
     _loopCount++;
     
     if(_loopCount > _loopInterval) _loopCount = 0;
 }
 
-void StampyStrip::showPosition(int index, int16_t currentSpeed, uint32_t bgColor) {
-//    Serial.print("Setting current position "); Serial.print(index);
-//    Serial.print(" with speed "); Serial.print(currentSpeed);
-    Serial.print("bg color is "); Serial.println(bgColor);
+void StampyStrip::showPosition(int index, int16_t currentSpeed) {
+    Serial.println(index);
     for(uint16_t i=0; i < _pix; i++) {
-        _strip->setPixelColor(i, bgColor);
+       // Serial.println("settings a pixel color");
+        _strip->setPixelColor(i, getLightColor(i));
+        //_strip->show();
     }
+    
+    //_strip->show();
 
-    uint8_t red = 125;
-    uint8_t blue = 125;
-    uint8_t green = 125;
+    uint8_t red = 255;
+    uint8_t blue = 255;
+    uint8_t green = 255;
 
     uint32_t color = getColor(red, green, blue);
 
-    Serial.print("display color is "); Serial.println(color);
+    ///Serial.print("display color is "); Serial.println(color);
+    
     for(int j=index - (_displaySize/2); j < index + (_displaySize/2); j++) {
         if(j > 0 && j < _pix)
             _strip->setPixelColor(j, color);
@@ -143,9 +138,12 @@ void StampyStrip::showPosition(int index, int16_t currentSpeed, uint32_t bgColor
     _strip->show();
 }
 
-uint32_t StampyStrip::getLoopedColor()
-{
-    return getLoopedColor(_loopCount, _loopInterval);
+uint32_t StampyStrip::getLightColor(int lightIndex) {
+    int lightOffset = ((float)lightIndex / (float)_pix) * (float)_loopInterval;
+
+    int colorLoopIndex = (_loopCount + lightOffset) % _loopInterval;
+//    Serial.print("using color loop index ");Serial.print(colorLoopIndex);Serial.print(" for light " ); Serial.println(lightIndex);
+    return getLoopedColor(colorLoopIndex, _loopInterval);
 }
 
 uint32_t StampyStrip::getLoopedColor(int index, int interval)
