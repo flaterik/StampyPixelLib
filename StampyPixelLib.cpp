@@ -7,19 +7,25 @@
 //
 
 #include "StampyPixelLib.h"
+#include "math.h"
 
-StampyStrip::StampyStrip(uint16_t pix, uint16_t ledPin, uint16_t inputPin, uint16_t pixCenter) {
+StampyStrip::StampyStrip(uint16_t pix, uint16_t ledPin, uint16_t inputPin1, uint16_t inputPin2, uint16_t pixCenter) {
     _strip = new Adafruit_NeoPixel(pix, ledPin, NEO_GRB + NEO_KHZ800);
-    _inputPin = inputPin;
+    _inputPin1 = inputPin1;
+    _inputPin2 = inputPin2;
     _ledPin = ledPin;
     _pix = pix;
     _pixCenter = pixCenter;
+    _readMin1 = 1024;
+    _readMin2 = 1024;
+    _readMax1 = 0;
+    _readMax2 = 0;
 }
 
 void StampyStrip::begin() {
     _strip->begin();
     _strip->show();
-    rainbowWipeUp(50);
+    //rainbowWipeUp(50);
 }
 
 uint32_t StampyStrip::getColor(uint8_t r, uint8_t g, uint8_t b) {
@@ -69,42 +75,69 @@ void StampyStrip::rainbowWipeUp(uint8_t wait) {
 void StampyStrip::loop() {
     
     int16_t currentIndex;
-    int16_t currentSpeed;
+    double currentAngle;
 
     if(_sampleIndex >= _sampleBufferSize - 1) {
-        uint32_t sampleSum = 0;
+        uint32_t sampleSum1 = 0;
+        uint32_t sampleSum2 = 0;
         for(int i = 0 ; i < _sampleBufferSize ; i++) {
-            sampleSum += _sampleBuffer[i];
-            _sampleBuffer[i] = 0;
+            sampleSum1 += _sampleBuffer1[i];
+            sampleSum2 += _sampleBuffer2[i];
+            _sampleBuffer1[i] = 0;
+            _sampleBuffer2[i] = 0;
         }
-        uint32_t averaged = sampleSum / _sampleBufferSize;
-        if(averaged < _readMin) {
-            _readMin = averaged;
+        uint32_t averaged1 = sampleSum1 / _sampleBufferSize;
+        uint32_t averaged2 = sampleSum2 / _sampleBufferSize;
+        if(averaged1 < _readMin1) {
+            _readMin1 = averaged1;
+            printRanges();
         }
-        if(averaged > _readMax) {
-            _readMax = averaged;
+        if(averaged1 > _readMax1) {
+            _readMax1 = averaged1;
+            printRanges();
         }
-        currentIndex = (uint16_t) map(averaged, _readMin, _readMax, 0, _pix - 1);
-        currentSpeed = abs(currentIndex - _lastIndex);
+        if(averaged2 < _readMin2) {
+            _readMin2 = averaged2;
+            printRanges();
+        }
+        if(averaged2 > _readMax2) {
+            _readMax2 = averaged2;
+            printRanges();
+        }
+        long xScaled = map(averaged1, _readMin1, _readMax1, -1000, 1000);
+        long yScaled = map(averaged2, _readMin2, _readMax2, -1000, 1000);
+        float xAccel = xScaled / 1000.0;
+        float yAccel = yScaled / 1000.0;
+        Serial.print(xAccel);
+        Serial.print(" x:y ");
+        Serial.println(yAccel);
+        
         _lastIndex = currentIndex;
-        if(currentSpeed > _maxSpeed) {
-            _maxSpeed = currentSpeed;
+        currentAngle = getAngle(averaged1, averaged2);
+        if(currentAngle > _maxAngle) {
+            _maxAngle = currentAngle;
         }
-        _lastSpeed = currentSpeed;
+        _lastAngle = currentAngle;
+        //Serial.println(currentAngle);
         _sampleIndex = 0;
-        showPosition(currentIndex, currentSpeed);
+        //showPosition(currentIndex, currentSpeed);
     }
     else {
         currentIndex = _lastIndex;
-        currentSpeed = _lastSpeed;
+        //currentSpeed = _lastSpeed;
     }
 
-    int inputRead = analogRead(_inputPin);
-    //Serial.println(inputRead);
-    if(inputRead < _readLimitLow) inputRead = _readLimitLow;
-    if(inputRead > _readLimitHigh) inputRead = _readLimitHigh;
+    int inputRead1 = analogRead(_inputPin1);
+    int inputRead2 = analogRead(_inputPin2);
+//
+//    Serial.print(inputRead1);
+//    Serial.print(" : ")
+//    Serial.print(inputRead2)
+//    if(inputRead1 < _readLimitLow) inputRead1 = _readLimitLow1;
+//    if(inputRead1 > _readLimitHigh) inputRead1 = _readLimitHigh1;
     
-    _sampleBuffer[_sampleIndex++] = (uint16_t) inputRead;
+    _sampleBuffer1[_sampleIndex++] = (uint16_t) inputRead1;
+    _sampleBuffer2[_sampleIndex++] = (uint16_t) inputRead2;
     _sampleIndex++;
         
     _loopCount++;
@@ -112,37 +145,51 @@ void StampyStrip::loop() {
     if(_loopCount > _loopInterval) _loopCount = 0;
 }
 
-void StampyStrip::showPosition(int index, int16_t currentSpeed) {
-    Serial.println(index);
-    for(uint16_t i=0; i < _pix; i++) {
-       // Serial.println("settings a pixel color");
-        _strip->setPixelColor(i, getLightColor(i));
-        //_strip->show();
-    }
-    
-    //_strip->show();
+//void StampyStrip::showPosition(int index, int16_t currentSpeed) {
+//    //Serial.println(index);
+//    for(uint16_t i=0; i < _pix; i++) {
+//       // Serial.println("settings a pixel color");
+//        _strip->setPixelColor(i, getLightColor(i));
+//        //_strip->show();
+//    }
+//    
+//    _strip->show();
+//
+//    uint8_t red = 255;
+//    uint8_t blue = 255;
+//    uint8_t green = 255;
+//
+//    uint32_t color = getColor(red, green, blue);
+//
+//    ///Serial.print("display color is "); Serial.println(color);
+//    
+//    for(int j=index - (_displaySize/2); j < index + (_displaySize/2); j++) {
+//        if(j > 0 && j < _pix)
+//            _strip->setPixelColor(j, color);
+//    }
+//
+//    _strip->show();
+//}
 
-    uint8_t red = 255;
-    uint8_t blue = 255;
-    uint8_t green = 255;
+void StampyStrip::printRanges() {
+    Serial.print(_readMin1);
+    Serial.print(" - ");
+    Serial.print(_readMax1);
+    Serial.print(" & ");
+    Serial.print(_readMin2);
+    Serial.print(" - ");
+    Serial.println(_readMax2);
+}
 
-    uint32_t color = getColor(red, green, blue);
-
-    ///Serial.print("display color is "); Serial.println(color);
-    
-    for(int j=index - (_displaySize/2); j < index + (_displaySize/2); j++) {
-        if(j > 0 && j < _pix)
-            _strip->setPixelColor(j, color);
-    }
-
-    _strip->show();
+double StampyStrip::getAngle(uint32_t input1, uint32_t input2) {
+    return atan2((double)input1, (double)input2);
 }
 
 uint32_t StampyStrip::getLightColor(int lightIndex) {
     int lightOffset = ((float)lightIndex / (float)_pix) * (float)_loopInterval;
 
     int colorLoopIndex = (_loopCount + lightOffset) % _loopInterval;
-//    Serial.print("using color loop index ");Serial.print(colorLoopIndex);Serial.print(" for light " ); Serial.println(lightIndex);
+    //Serial.print("using color loop index ");Serial.print(colorLoopIndex);Serial.print(" for light " ); Serial.println(lightIndex);
     return getLoopedColor(colorLoopIndex, _loopInterval);
 }
 
