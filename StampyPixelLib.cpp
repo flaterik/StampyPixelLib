@@ -9,7 +9,7 @@
 #include "StampyPixelLib.h"
 #include "math.h"
 
-StampyStrip::StampyStrip(uint16_t pix, uint16_t ledPin, uint16_t inputPin1, uint16_t inputPin2, uint16_t pixCenter, int16_t inputZero1, int16_t inputZero2) {
+StampyStrip::StampyStrip(uint16_t pix, uint16_t ledPin, uint16_t inputPin1, uint16_t inputPin2, uint16_t pixCenter, int16_t inputZero1, int16_t inputZero2, int intervalOffset) {
     _strip = new Adafruit_NeoPixel(pix, ledPin, NEO_GRB + NEO_KHZ800);
     _inputPin1 = inputPin1;
     _inputPin2 = inputPin2;
@@ -24,12 +24,13 @@ StampyStrip::StampyStrip(uint16_t pix, uint16_t ledPin, uint16_t inputPin1, uint
     _readMax2 = 0;
     _xAccel = 0;
     _yAccel = 0;
+    _loopCount = intervalOffset;
 }
 
 void StampyStrip::begin() {
     _strip->begin();
     _strip->show();
-    //rainbowWipeUp(50);
+    //rainbowWipeUp(1);
 }
 
 uint32_t StampyStrip::getColor(uint8_t r, uint8_t g, uint8_t b) {
@@ -69,8 +70,8 @@ void StampyStrip::loop() {
         _xAccel = map(averaged1, _readMin1, _readMax1, -1000, 1000);
         _yAccel = map(averaged2, _readMin2, _readMax2, -1000, 1000);
 //        Serial.print(_xAccel);
-//        Serial.print(" x:bright ");
-//        Serial.println(getBrightness(0));
+//        Serial.print(" x:y ");
+//        Serial.println(_yAccel);
         _sampleIndex = 0;
         show();
     }

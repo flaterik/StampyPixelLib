@@ -5,7 +5,7 @@
 
 class StampyStrip {
 public:
-    StampyStrip(uint16_t pix, uint16_t ledPin, uint16_t inputPin1, uint16_t inputPin2, uint16_t pixCenter,int16_t inputZero1, int16_t inputZero2);
+    StampyStrip(uint16_t pix, uint16_t ledPin, uint16_t inputPin1, uint16_t inputPin2, uint16_t pixCenter,int16_t inputZero1, int16_t inputZero2, int intervalOffset);
     void loop();
     void rainbowWipeUp(uint8_t wait);
     void rainbowWipeDown(uint8_t wait);
@@ -19,7 +19,7 @@ private:
     
     static const uint8_t _bgMinBrightness = 0;
     static const uint8_t _bgMaxBrightness = 255;
-    static const uint8_t _sampleBufferSize = 16;
+    static const uint8_t _sampleBufferSize = 5;
 //    static const int _readLimitHigh1 = 512; //accelerometers are 5v nominal, getting 3.3 without a reference, need to scale to account
 //    static const int _readLimitLow1 = 325;
 //    
