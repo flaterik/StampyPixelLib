@@ -62,60 +62,17 @@ uint32_t StampyStrip::getColor(uint8_t r, uint8_t g, uint8_t b) {
 
 void StampyStrip::loop() {
     
-    if(_sampleIndex > _sampleBufferSize) {
-        //        int32_t sampleSum = 0;
-        //        for(int i = 0 ; i < _sampleBufferSize ; i++) {
-        //            sampleSum += _sampleBuffer[i];
-        //            _sampleBuffer1[i] = 0;
-        //        }
-        //        int32_t averaged = (sampleSum / _sampleBufferSize);
-        //
-        //        if(averaged1 < _readMin1) {
-        //            _readMin1 = averaged1;
-        //            //printRanges();
-        //        }
-        //        if(averaged1 > _readMax1) {
-        //            _readMax1 = averaged1;
-        //            //printRanges();
-        //        }
-        //        if(averaged2 < _readMin2) {
-        //            _readMin2 = averaged2;
-        //            //printRanges();
-        //        }
-        //        if(averaged2 > _readMax2) {
-        //            _readMax2 = averaged2;
-        //            //printRanges();
-        //        }
-        //        _xAccel = map(averaged1, _readMin1, _readMax1, -1000, 1000);
-        //        _yAccel = map(averaged2, _readMin2, _readMax2, -1000, 1000);
-        ////        Serial.print(_xAccel);
-        ////        Serial.print(" x:y ");
-        ////        Serial.println(_yAccel);
-        _sampleIndex = 0;
-        //show();
-    }
-    //
-    //    int inputRead1 = analogRead(_inputPin1);
-    //    int inputRead2 = analogRead(_inputPin2);
-    //
-    //    _sampleBuffer[_sampleIndex] = (uint16_t) inputRead1;
-    //    _sampleBuffer2[_sampleIndex] = (uint16_t) inputRead2;
-    sensors_event_t accel_event;
-    sensors_event_t gyro_event;
-    sensors_vec_t   orientation;
     if(_useInput) {
-        _accel.getEvent(&accel_event);
-        _gyro.getEvent(&gyro_event);
-        if (_dof.accelGetOrientation(&accel_event, &orientation))
+        _accel.getEvent(&_accel_event);
+        _gyro.getEvent(&_gyro_event);
+        if (_dof.accelGetOrientation(&_accel_event, &_orientation))
         {
-            double dt = (double)(micros() - _timer) / 1000000; // Calculate delta time
-            _kalmanX.setAngle(orientation.roll); // Set starting angle
+            _dt = (double)(micros() - _timer) / 1000000; // Calculate delta time
+            _kalmanX.setAngle(_orientation.roll); // Set starting angle
             //_kalmanY.setAngle(orientation.pitch);
-            double gyroXrate = gyro_event.gyro.roll / 131.0; // Convert to deg/s
+            _gyroXrate = _gyro_event.gyro.roll / 131.0; // Convert to deg/s
             //double gyroYrate = gyro_event.pitch / 131.0; // Convert to deg/s
-            double kalAngleX = _kalmanX.getAngle(orientation.roll, gyroXrate, dt);
-            _currentRoll = kalAngleX;
-            
+            _currentRoll = _kalmanX.getAngle(_orientation.roll, _gyroXrate, _dt);
             if(_currentRoll > _maxRoll) {
                 _maxRoll = _currentRoll;
                 Serial.print(F("Max: "));
@@ -129,9 +86,8 @@ void StampyStrip::loop() {
         }
     }
     
-    _sampleIndex++;
-    //
     show();
+    
     _loopCount++;
     
     if(_loopCount > _loopInterval) _loopCount = 0;
@@ -141,11 +97,11 @@ void StampyStrip::show() {
     //Serial.println(index);
     float brightness = getBrightness(0);
     //if(brightness != _brightness) {
-        _brightness = brightness;
-      //  Serial.print("brightness: ");
-        //Serial.println(brightness);
+    _brightness = brightness;
+    //  Serial.print("brightness: ");
+    //Serial.println(brightness);
     //}
-
+    
     for(uint16_t i=0; i < _pix; i++) {
         uint32_t thisColor = getLightColor(i);
         _strip->setPixelColor(i, thisColor);
@@ -177,7 +133,7 @@ uint32_t StampyStrip::getLightColor(int lightIndex) {
 }
 
 float StampyStrip::getBrightness(int index) {
-   return dmap(_currentRoll, _minRoll, _maxRoll, 0.10, 1);
+    return dmap(_currentRoll, _minRoll, _maxRoll, 0.10, 1);
 }
 
 uint8_t StampyStrip::getScaled(uint8_t num, float by) {

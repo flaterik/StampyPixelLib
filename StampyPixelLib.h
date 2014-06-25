@@ -39,12 +39,6 @@ private:
     uint16_t _pixCenter;
     
     uint16_t _loopCount;
-
-    double _maxAngle;
-    double _lastAngle;
-    
-    int16_t _sampleBuffer[_sampleBufferSize];
-    uint8_t _sampleIndex;
     
     uint32_t _bgColor;
     
@@ -55,11 +49,15 @@ private:
     Kalman _kalmanX; // Create the Kalman instances
     Kalman _kalmanY;
     uint32_t _timer;
-    
+    sensors_event_t _accel_event;
+    sensors_event_t _gyro_event;
+    sensors_vec_t   _orientation;
     float _currentRoll;
     float _maxRoll;
     float _minRoll;
     float _brightness;
+    double _gyroXrate;
+    double _dt;
     void printRanges();
     float fmap(float x, float in_min, float in_max, float out_min, float out_max);
     double dmap(double x, double in_min, double in_max, double out_min, double out_max);
