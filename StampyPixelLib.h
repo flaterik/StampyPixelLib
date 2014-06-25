@@ -6,6 +6,8 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM303_U.h>
 #include <Adafruit_9DOF.h>
+#include <Adafruit_L3GD20_U.h>
+#include <Kalman.h>
 
 class StampyStrip {
 public:
@@ -49,6 +51,11 @@ private:
     bool _useInput;
     Adafruit_9DOF                _dof;
     Adafruit_LSM303_Accel_Unified _accel;
+    Adafruit_L3GD20_Unified _gyro;
+    Kalman _kalmanX; // Create the Kalman instances
+    Kalman _kalmanY;
+    uint32_t _timer;
+    
     float _currentRoll;
     float _maxRoll;
     float _minRoll;

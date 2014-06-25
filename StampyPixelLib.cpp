@@ -10,6 +10,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM303_U.h>
 #include <Adafruit_9DOF.h>
+#include <Kalman.h>
 #include "StampyPixelLib.h"
 #include "math.h"
 
@@ -36,18 +37,20 @@ void StampyStrip::begin() {
         Serial.println("trying to start sensors");
         _dof = Adafruit_9DOF();
         _accel = Adafruit_LSM303_Accel_Unified(30301);
-        if(_accel.begin()) {
+        _gyro = Adafruit_L3GD20_Unified(30301);
+        if(_accel.begin() && _gyro.begin()) {
             _useInput = true;
             Serial.println("using input");
         }
         else {
             _useInput = false;
-            Serial.println("accel didn't start");
+            Serial.println("accel or gyro didn't start");
         }
     }
     else {
         Serial.println("not using input");
     }
+    _timer = micros();
     _strip->begin();
     _strip->show();
     //rainbowWipeUp(1);
@@ -98,15 +101,21 @@ void StampyStrip::loop() {
     //    _sampleBuffer[_sampleIndex] = (uint16_t) inputRead1;
     //    _sampleBuffer2[_sampleIndex] = (uint16_t) inputRead2;
     sensors_event_t accel_event;
+    sensors_event_t gyro_event;
     sensors_vec_t   orientation;
     if(_useInput) {
         _accel.getEvent(&accel_event);
+        _gyro.getEvent(&gyro_event);
         if (_dof.accelGetOrientation(&accel_event, &orientation))
         {
-            /* 'orientation' should have valid .roll and .pitch fields */
-            //Serial.print(F("Roll: "));
-            //erial.println(orientation.roll);
-            _currentRoll = orientation.roll;
+            double dt = (double)(micros() - _timer) / 1000000; // Calculate delta time
+            _kalmanX.setAngle(orientation.roll); // Set starting angle
+            //_kalmanY.setAngle(orientation.pitch);
+            double gyroXrate = gyro_event.gyro.roll / 131.0; // Convert to deg/s
+            //double gyroYrate = gyro_event.pitch / 131.0; // Convert to deg/s
+            double kalAngleX = _kalmanX.getAngle(orientation.roll, gyroXrate, dt);
+            _currentRoll = kalAngleX;
+            
             if(_currentRoll > _maxRoll) {
                 _maxRoll = _currentRoll;
                 Serial.print(F("Max: "));
@@ -131,11 +140,11 @@ void StampyStrip::loop() {
 void StampyStrip::show() {
     //Serial.println(index);
     float brightness = getBrightness(0);
-    if(brightness != _brightness) {
+    //if(brightness != _brightness) {
         _brightness = brightness;
-        Serial.print("brightness: ");
-        Serial.println(brightness);
-    }
+      //  Serial.print("brightness: ");
+        //Serial.println(brightness);
+    //}
 
     for(uint16_t i=0; i < _pix; i++) {
         uint32_t thisColor = getLightColor(i);
