@@ -1,33 +1,53 @@
 //
 //  StampyPixelLib.cpp
-//  
+//
 //
 //  Created by Erik Nelson on 8/16/13.
 //
 //
 
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_LSM303_U.h>
+#include <Adafruit_9DOF.h>
 #include "StampyPixelLib.h"
 #include "math.h"
 
-StampyStrip::StampyStrip(uint16_t pix, uint16_t ledPin, uint16_t inputPin1, uint16_t inputPin2, uint16_t pixCenter, int16_t inputZero1, int16_t inputZero2, int intervalOffset) {
+//#include <Adafruit_Sensor.h>
+//#include <Adafruit_LSM303_U.h>
+//#include <Adafruit_9DOF.h>
+
+StampyStrip::StampyStrip(uint16_t pix, uint16_t ledPin, bool useInput, uint16_t pixCenter, uint16_t loopInterval, int intervalOffset) {
     _strip = new Adafruit_NeoPixel(pix, ledPin, NEO_GRB + NEO_KHZ800);
-    _inputPin1 = inputPin1;
-    _inputPin2 = inputPin2;
-    _inputZero1 = inputZero1;
-    _inputZero2 = inputZero2;
     _ledPin = ledPin;
     _pix = pix;
     _pixCenter = pixCenter;
-    _readMin1 = 1024;
-    _readMin2 = 1024;
-    _readMax1 = 0;
-    _readMax2 = 0;
-    _xAccel = 0;
-    _yAccel = 0;
     _loopCount = intervalOffset;
+    _useInput = useInput;
+    _currentRoll = 0;
+    _maxRoll = -90;
+    _minRoll = 90;
+    _loopInterval = loopInterval;
+    _brightness = 1.0;
 }
 
 void StampyStrip::begin() {
+    if(_useInput) {
+        Serial.println("trying to start sensors");
+        _dof = Adafruit_9DOF();
+        _accel = Adafruit_LSM303_Accel_Unified(30301);
+        if(_accel.begin()) {
+            _useInput = true;
+            Serial.println("using input");
+        }
+        else {
+            _useInput = false;
+            Serial.println("accel didn't start");
+        }
+    }
+    else {
+        Serial.println("not using input");
+    }
     _strip->begin();
     _strip->show();
     //rainbowWipeUp(1);
@@ -40,49 +60,69 @@ uint32_t StampyStrip::getColor(uint8_t r, uint8_t g, uint8_t b) {
 void StampyStrip::loop() {
     
     if(_sampleIndex > _sampleBufferSize) {
-        int32_t sampleSum1 = 0;
-        int32_t sampleSum2 = 0;
-        for(int i = 0 ; i < _sampleBufferSize ; i++) {
-            sampleSum1 += _sampleBuffer1[i];
-            sampleSum2 += _sampleBuffer2[i];
-            _sampleBuffer1[i] = 0;
-            _sampleBuffer2[i] = 0;
-        }
-        int32_t averaged1 = (sampleSum1 / _sampleBufferSize) - _inputZero1;
-        int32_t averaged2 = (sampleSum2 / _sampleBufferSize) - _inputZero2;
-        
-        if(averaged1 < _readMin1) {
-            _readMin1 = averaged1;
-            //printRanges();
-        }
-        if(averaged1 > _readMax1) {
-            _readMax1 = averaged1;
-            //printRanges();
-        }
-        if(averaged2 < _readMin2) {
-            _readMin2 = averaged2;
-            //printRanges();
-        }
-        if(averaged2 > _readMax2) {
-            _readMax2 = averaged2;
-            //printRanges();
-        }
-        _xAccel = map(averaged1, _readMin1, _readMax1, -1000, 1000);
-        _yAccel = map(averaged2, _readMin2, _readMax2, -1000, 1000);
-//        Serial.print(_xAccel);
-//        Serial.print(" x:y ");
-//        Serial.println(_yAccel);
+        //        int32_t sampleSum = 0;
+        //        for(int i = 0 ; i < _sampleBufferSize ; i++) {
+        //            sampleSum += _sampleBuffer[i];
+        //            _sampleBuffer1[i] = 0;
+        //        }
+        //        int32_t averaged = (sampleSum / _sampleBufferSize);
+        //
+        //        if(averaged1 < _readMin1) {
+        //            _readMin1 = averaged1;
+        //            //printRanges();
+        //        }
+        //        if(averaged1 > _readMax1) {
+        //            _readMax1 = averaged1;
+        //            //printRanges();
+        //        }
+        //        if(averaged2 < _readMin2) {
+        //            _readMin2 = averaged2;
+        //            //printRanges();
+        //        }
+        //        if(averaged2 > _readMax2) {
+        //            _readMax2 = averaged2;
+        //            //printRanges();
+        //        }
+        //        _xAccel = map(averaged1, _readMin1, _readMax1, -1000, 1000);
+        //        _yAccel = map(averaged2, _readMin2, _readMax2, -1000, 1000);
+        ////        Serial.print(_xAccel);
+        ////        Serial.print(" x:y ");
+        ////        Serial.println(_yAccel);
         _sampleIndex = 0;
-        show();
+        //show();
     }
-
-    int inputRead1 = analogRead(_inputPin1);
-    int inputRead2 = analogRead(_inputPin2);
+    //
+    //    int inputRead1 = analogRead(_inputPin1);
+    //    int inputRead2 = analogRead(_inputPin2);
+    //
+    //    _sampleBuffer[_sampleIndex] = (uint16_t) inputRead1;
+    //    _sampleBuffer2[_sampleIndex] = (uint16_t) inputRead2;
+    sensors_event_t accel_event;
+    sensors_vec_t   orientation;
+    if(_useInput) {
+        _accel.getEvent(&accel_event);
+        if (_dof.accelGetOrientation(&accel_event, &orientation))
+        {
+            /* 'orientation' should have valid .roll and .pitch fields */
+            //Serial.print(F("Roll: "));
+            //erial.println(orientation.roll);
+            _currentRoll = orientation.roll;
+            if(_currentRoll > _maxRoll) {
+                _maxRoll = _currentRoll;
+                Serial.print(F("Max: "));
+                Serial.println(_maxRoll);
+            }
+            if(_currentRoll < _minRoll) {
+                _minRoll = _currentRoll;
+                Serial.print(F("Min: "));
+                Serial.println(_minRoll);
+            }
+        }
+    }
     
-    _sampleBuffer1[_sampleIndex] = (uint16_t) inputRead1;
-    _sampleBuffer2[_sampleIndex] = (uint16_t) inputRead2;
     _sampleIndex++;
-        
+    //
+    show();
     _loopCount++;
     
     if(_loopCount > _loopInterval) _loopCount = 0;
@@ -90,6 +130,13 @@ void StampyStrip::loop() {
 
 void StampyStrip::show() {
     //Serial.println(index);
+    float brightness = getBrightness(0);
+    if(brightness != _brightness) {
+        _brightness = brightness;
+        Serial.print("brightness: ");
+        Serial.println(brightness);
+    }
+
     for(uint16_t i=0; i < _pix; i++) {
         uint32_t thisColor = getLightColor(i);
         _strip->setPixelColor(i, thisColor);
@@ -98,22 +145,22 @@ void StampyStrip::show() {
 }
 
 void StampyStrip::printRanges() {
-    Serial.print(_readMin1);
-    Serial.print(" - ");
-    Serial.print(_readMax1);
-    Serial.print(" & ");
-    Serial.print(_readMin2);
-    Serial.print(" - ");
-    Serial.println(_readMax2);
+    //    Serial.print(_readMin1);
+    //    Serial.print(" - ");
+    //    Serial.print(_readMax1);
+    //    Serial.print(" & ");
+    //    Serial.print(_readMin2);
+    //    Serial.print(" - ");
+    //    Serial.println(_readMax2);
 }
 
-double StampyStrip::getAngle(uint32_t input1, uint32_t input2) {
-    return atan2((double)input1, (double)input2);
-}
+//double StampyStrip::getAngle(uint32_t input1, uint32_t input2) {
+//    return atan2((double)input1, (double)input2);
+//}
 
 uint32_t StampyStrip::getLightColor(int lightIndex) {
     int lightOffset = ((float)lightIndex / (float)_pix) * (float)_loopInterval;
-
+    
     int colorLoopIndex = (_loopCount + lightOffset) % _loopInterval;
     //Serial.print("using color loop index ");Serial.print(colorLoopIndex);Serial.print(" for light " ); Serial.println(lightIndex);
     uint32_t color = getLoopedColor(colorLoopIndex, _loopInterval);
@@ -121,7 +168,7 @@ uint32_t StampyStrip::getLightColor(int lightIndex) {
 }
 
 float StampyStrip::getBrightness(int index) {
-    return dmap(abs(_xAccel), 0.0, 1000.0, 0.30, 1);
+   return dmap(_currentRoll, _minRoll, _maxRoll, 0.10, 1);
 }
 
 uint8_t StampyStrip::getScaled(uint8_t num, float by) {
@@ -137,21 +184,19 @@ uint32_t StampyStrip::getLoopedColor(int index, int interval)
     float rRads = getRadians(rIndex, interval);
     float gRads = getRadians(gIndex, interval);
     float bRads = getRadians(bIndex, interval);
-
-    float brightness = getBrightness(index);
-   // Serial.println(brightness);
-    uint8_t r = getScaled(sinMap(rRads), brightness);
-    uint8_t g = getScaled(sinMap(gRads), brightness);
-    uint8_t b = getScaled(sinMap(bRads), brightness);
-                          
-//    Serial.print("index :");
-//    Serial.print(index);
-//    Serial.print(" r: ");
-//    Serial.print(r);
-//    Serial.print(" g: ");
-//    Serial.print(g);
-//    Serial.print(" b: ");
-//    Serial.println(b);
+    
+    uint8_t r = getScaled(sinMap(rRads), _brightness);
+    uint8_t g = getScaled(sinMap(gRads), _brightness);
+    uint8_t b = getScaled(sinMap(bRads), _brightness);
+    
+    //    Serial.print("index :");
+    //    Serial.print(index);
+    //    Serial.print(" r: ");
+    //    Serial.print(r);
+    //    Serial.print(" g: ");
+    //    Serial.print(g);
+    //    Serial.print(" b: ");
+    //    Serial.println(b);
     //return getColor(r,g,b);
     return _strip->Color(r, g, b);
 }

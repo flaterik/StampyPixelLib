@@ -2,10 +2,14 @@
 #define _StampyPixelLib_h
 
 #include "Adafruit_NeoPixel.h"
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_LSM303_U.h>
+#include <Adafruit_9DOF.h>
 
 class StampyStrip {
 public:
-    StampyStrip(uint16_t pix, uint16_t ledPin, uint16_t inputPin1, uint16_t inputPin2, uint16_t pixCenter,int16_t inputZero1, int16_t inputZero2, int intervalOffset);
+    StampyStrip(uint16_t pix, uint16_t ledPin, bool useInput, uint16_t pixCenter, uint16_t loopInterval, int intervalOffset);
     void loop();
     void rainbowWipeUp(uint8_t wait);
     void rainbowWipeDown(uint8_t wait);
@@ -14,7 +18,7 @@ public:
     uint32_t getColor(uint8_t r, uint8_t g, uint8_t b);
     void begin();
 private:
-    static const uint16_t _loopInterval = 10000;
+    uint16_t _loopInterval;
     //static const uint8_t _displaySize = 4;
     
     static const uint8_t _bgMinBrightness = 0;
@@ -33,25 +37,22 @@ private:
     uint16_t _pixCenter;
     
     uint16_t _loopCount;
-    
-    uint16_t _inputPin1;
-    uint16_t _inputPin2;
-    int16_t _inputZero1;
-    int16_t _inputZero2;
-    int16_t _readMax1;
-    int16_t _readMin1;
-    int16_t _readMax2;
-    int16_t _readMin2;
-    double _xAccel;
-    double _yAccel;
+
     double _maxAngle;
     double _lastAngle;
     
-    int16_t _sampleBuffer1[_sampleBufferSize];
-    int16_t _sampleBuffer2[_sampleBufferSize];
+    int16_t _sampleBuffer[_sampleBufferSize];
     uint8_t _sampleIndex;
     
     uint32_t _bgColor;
+    
+    bool _useInput;
+    Adafruit_9DOF                _dof;
+    Adafruit_LSM303_Accel_Unified _accel;
+    float _currentRoll;
+    float _maxRoll;
+    float _minRoll;
+    float _brightness;
     void printRanges();
     float fmap(float x, float in_min, float in_max, float out_min, float out_max);
     double dmap(double x, double in_min, double in_max, double out_min, double out_max);
@@ -59,7 +60,6 @@ private:
     float getRadians(float index, int interval);
     uint8_t sinMap(float rads);
     uint32_t getLoopedColor(int index, int interval);
-    double getAngle(uint32_t input1, uint32_t input2);
     void showPosition();
     uint32_t getLightColor(int lightIndex);
     float getBrightness(int index);
